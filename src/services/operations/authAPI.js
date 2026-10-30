@@ -172,7 +172,7 @@ export function resetPassword(password, confirmPassword, token, navigate) {
   }
 }
 
-export function logout(navigate) {
+export function logout() {
   return (dispatch) => {
     dispatch(setToken(null))
     dispatch(setUser(null))
@@ -180,6 +180,6 @@ export function logout(navigate) {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
     toast.success("Logged Out")
-    navigate("/")
+    window.location.assign("/")
   }
 }

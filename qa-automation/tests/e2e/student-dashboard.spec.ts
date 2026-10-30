@@ -46,8 +46,7 @@ test("logout clears mocked client state and protects the dashboard again", async
   await expect(page.getByText("Are You Sure ?")).toBeVisible();
   await studentDashboardPage.confirmLogout();
 
-  await expect(page).toHaveURL(/\/login$/);
-  await expect(loginPage.heading).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
   await expect
     .poll(() =>
       page.evaluate(() => ({
