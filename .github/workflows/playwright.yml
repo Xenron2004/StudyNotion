@@ -1,0 +1,82 @@
+name: Playwright CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    name: Type-check and Playwright tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FRONTEND_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            qa-automation/package-lock.json
+
+      - name: Install StudyNotion frontend dependencies
+        run: npm ci
+
+      - name: Install automation dependencies
+        working-directory: qa-automation
+        run: npm ci
+
+      - name: Install Playwright Chromium and system dependencies
+        working-directory: qa-automation
+        run: npx playwright install --with-deps chromium
+
+      - name: Start the local frontend for UI tests
+        env:
+          CI: "false"
+          BROWSER: none
+          HOST: 127.0.0.1
+          PORT: 3000
+        run: |
+          npm start > "$RUNNER_TEMP/studynotion-frontend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/studynotion-frontend.pid"
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --output /dev/null "$FRONTEND_URL"; then
+              echo "Frontend is ready at $FRONTEND_URL"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat "$RUNNER_TEMP/studynotion-frontend.log"
+          echo "Frontend did not become ready in time."
+          exit 1
+
+      - name: Type-check automation tests
+        working-directory: qa-automation
+        run: npx tsc --noEmit
+
+      - name: Run the complete Playwright suite
+        working-directory: qa-automation
+        run: npx playwright test
+
+      - name: Upload Playwright report and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-and-diagnostics
+          path: |
+            qa-automation/playwright-report/
+            qa-automation/test-results/
+          if-no-files-found: warn
+          retention-days: 14
